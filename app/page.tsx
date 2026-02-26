@@ -8,8 +8,11 @@ import { BodyTypeChart } from "@/components/dashboard/body-type-chart"
 import { YearDistributionChart } from "@/components/dashboard/year-distribution-chart"
 import { FairPriceTool } from "@/components/dashboard/fair-price-tool"
 import { ListingsTable } from "@/components/dashboard/listings-table"
+import { fetchStats, fetchListings } from "@/lib/api"
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const [stats, listings] = await Promise.all([fetchStats(), fetchListings()])
+
   return (
     <div className="min-h-screen bg-background">
       <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
@@ -18,7 +21,7 @@ export default function DashboardPage() {
           <DashboardHeader />
 
           {/* KPI Cards */}
-          <KpiCards />
+          <KpiCards stats={stats} />
 
           {/* Fair Price Estimator */}
           <FairPriceTool />
@@ -26,7 +29,7 @@ export default function DashboardPage() {
           {/* Charts Row 1: Price Trends + Brand Distribution */}
           <div className="grid gap-6 lg:grid-cols-2">
             <PriceTrendChart />
-            <BrandDistributionChart />
+            <BrandDistributionChart brands={stats?.top_brands} />
           </div>
 
           {/* Charts Row 2: Mileage vs Price + Listing Volume */}
@@ -42,7 +45,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Listings Table */}
-          <ListingsTable />
+          <ListingsTable initialListings={listings} />
 
           {/* Footer */}
           <footer className="flex items-center justify-between border-t border-border/50 pt-6 pb-4">
@@ -58,3 +61,4 @@ export default function DashboardPage() {
     </div>
   )
 }
+

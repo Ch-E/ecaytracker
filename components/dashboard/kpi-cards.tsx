@@ -2,6 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { kpiStats } from "@/lib/mock-data"
+import type { DashboardStats } from "@/lib/api"
 import {
   Car,
   DollarSign,
@@ -15,12 +16,12 @@ import {
 interface KpiCardProps {
   title: string
   value: string
-  change: number
+  change?: number
   icon: React.ReactNode
 }
 
 function KpiCard({ title, value, change, icon }: KpiCardProps) {
-  const isPositive = change >= 0
+  const isPositive = (change ?? 0) >= 0
   return (
     <Card className="border-border/50 relative overflow-hidden">
       <CardContent className="p-5">
@@ -32,22 +33,24 @@ function KpiCard({ title, value, change, icon }: KpiCardProps) {
             <span className="text-2xl font-bold tracking-tight text-foreground">
               {value}
             </span>
-            <div className="flex items-center gap-1">
-              {isPositive ? (
-                <TrendingUp className="size-3 text-success" />
-              ) : (
-                <TrendingDown className="size-3 text-destructive" />
-              )}
-              <span
-                className={`text-xs font-medium ${
-                  isPositive ? "text-success" : "text-destructive"
-                }`}
-              >
-                {isPositive ? "+" : ""}
-                {change}%
-              </span>
-              <span className="text-muted-foreground text-xs">vs last month</span>
-            </div>
+            {change !== undefined && (
+              <div className="flex items-center gap-1">
+                {isPositive ? (
+                  <TrendingUp className="size-3 text-success" />
+                ) : (
+                  <TrendingDown className="size-3 text-destructive" />
+                )}
+                <span
+                  className={`text-xs font-medium ${
+                    isPositive ? "text-success" : "text-destructive"
+                  }`}
+                >
+                  {isPositive ? "+" : ""}
+                  {change}%
+                </span>
+                <span className="text-muted-foreground text-xs">vs last month</span>
+              </div>
+            )}
           </div>
           <div className="flex size-11 items-center justify-center rounded-lg bg-primary/10">
             {icon}
@@ -58,24 +61,28 @@ function KpiCard({ title, value, change, icon }: KpiCardProps) {
   )
 }
 
-export function KpiCards() {
+interface KpiCardsProps {
+  stats?: DashboardStats | null
+}
+
+export function KpiCards({ stats }: KpiCardsProps) {
   const cards = [
     {
       title: "Total Listings",
-      value: kpiStats.totalListings.toLocaleString(),
-      change: kpiStats.newListingsChange,
+      value: (stats?.total_listings ?? kpiStats.totalListings).toLocaleString(),
+      change: stats ? undefined : kpiStats.newListingsChange,
       icon: <Car className="size-5 text-primary" />,
     },
     {
       title: "Average Price",
-      value: `$${kpiStats.avgPrice.toLocaleString()}`,
-      change: kpiStats.avgPriceChange,
+      value: `$${Math.round(stats?.avg_price ?? kpiStats.avgPrice).toLocaleString()}`,
+      change: stats ? undefined : kpiStats.avgPriceChange,
       icon: <DollarSign className="size-5 text-primary" />,
     },
     {
       title: "Median Price",
-      value: `$${kpiStats.medianPrice.toLocaleString()}`,
-      change: kpiStats.medianPriceChange,
+      value: `$${Math.round(stats?.median_price ?? kpiStats.medianPrice).toLocaleString()}`,
+      change: stats ? undefined : kpiStats.medianPriceChange,
       icon: <BarChart3 className="size-5 text-primary" />,
     },
     {
@@ -86,8 +93,8 @@ export function KpiCards() {
     },
     {
       title: "New This Week",
-      value: kpiStats.newListingsThisWeek.toString(),
-      change: kpiStats.newListingsChange,
+      value: (stats?.new_this_week ?? kpiStats.newListingsThisWeek).toString(),
+      change: stats ? undefined : kpiStats.newListingsChange,
       icon: <TrendingUp className="size-5 text-primary" />,
     },
     {
@@ -106,3 +113,4 @@ export function KpiCards() {
     </div>
   )
 }
+

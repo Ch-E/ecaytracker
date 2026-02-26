@@ -149,6 +149,56 @@ func GetListings(ctx context.Context, pool *pgxpool.Pool) ([]models.Listing, err
 	return listings, nil
 }
 
+// GetStats returns pre-computed dashboard statistics: total listing count, average
+// price, median price, new-this-week count, and the top 8 makes by listing volume.
+func GetStats(ctx context.Context, pool *pgxpool.Pool) (models.Stats, error) {
+	var stats models.Stats
+
+	// Single-row aggregates.
+	err := pool.QueryRow(ctx, `
+		SELECT
+			COUNT(*)::int,
+			COALESCE(AVG(price), 0),
+			COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price), 0),
+			COUNT(*) FILTER (WHERE first_seen >= NOW() - INTERVAL '7 days')::int
+		FROM listings
+		WHERE is_active = TRUE
+	`).Scan(&stats.TotalListings, &stats.AvgPrice, &stats.MedianPrice, &stats.NewThisWeek)
+	if err != nil {
+		return stats, fmt.Errorf("get stats aggregate: %w", err)
+	}
+
+	// Top 8 makes by listing count.
+	rows, err := pool.Query(ctx, `
+		SELECT make, COUNT(*)::int, COALESCE(AVG(price), 0)
+		FROM listings
+		WHERE is_active = TRUE AND make IS NOT NULL AND make != ''
+		GROUP BY make
+		ORDER BY COUNT(*) DESC
+		LIMIT 8
+	`)
+	if err != nil {
+		return stats, fmt.Errorf("get top brands: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var b models.BrandStat
+		if err := rows.Scan(&b.Name, &b.Count, &b.AvgPrice); err != nil {
+			return stats, fmt.Errorf("scan brand row: %w", err)
+		}
+		stats.TopBrands = append(stats.TopBrands, b)
+	}
+	if err := rows.Err(); err != nil {
+		return stats, fmt.Errorf("brand rows error: %w", err)
+	}
+	if stats.TopBrands == nil {
+		stats.TopBrands = make([]models.BrandStat, 0)
+	}
+
+	return stats, nil
+}
+
 // strVal dereferences a *string, returning "" for nil pointers.
 func strVal(s *string) string {
 	if s == nil {

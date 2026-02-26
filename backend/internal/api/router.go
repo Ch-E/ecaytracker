@@ -35,6 +35,7 @@ func NewRouter(pool *pgxpool.Pool, frontendURL string) *gin.Engine {
 	api := r.Group("/api")
 	{
 		api.GET("/listings", handlers.Listings(pool))
+		api.GET("/stats", handlers.Stats(pool))
 	}
 
 	return r

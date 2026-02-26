@@ -4,6 +4,7 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Cell }
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { brandDistribution } from "@/lib/mock-data"
+import type { BrandStat } from "@/lib/api"
 
 const COLORS = [
   "oklch(0.65 0.2 160)",
@@ -16,7 +17,16 @@ const COLORS = [
   "oklch(0.7 0.18 80 / 0.7)",
 ]
 
-export function BrandDistributionChart() {
+interface BrandDistributionChartProps {
+  brands?: BrandStat[]
+}
+
+export function BrandDistributionChart({ brands }: BrandDistributionChartProps) {
+  const data =
+    brands && brands.length > 0
+      ? brands.map((b) => ({ name: b.name, count: b.count, avgPrice: b.avg_price }))
+      : brandDistribution
+
   return (
     <Card className="border-border/50">
       <CardHeader className="pb-2">
@@ -35,7 +45,7 @@ export function BrandDistributionChart() {
         >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
-              data={brandDistribution}
+              data={data}
               layout="vertical"
               margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
             >
@@ -65,7 +75,7 @@ export function BrandDistributionChart() {
                 }
               />
               <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
-                {brandDistribution.map((_, index) => (
+                {data.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Bar>
@@ -76,3 +86,4 @@ export function BrandDistributionChart() {
     </Card>
   )
 }
+

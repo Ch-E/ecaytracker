@@ -20,10 +20,28 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { carListings } from "@/lib/mock-data"
-import { Search, ArrowUpDown } from "lucide-react"
+import type { ApiListing } from "@/lib/api"
+import { Search, ArrowUpDown, ExternalLink } from "lucide-react"
 
 type SortField = "price" | "year" | "mileage" | "listedDate"
 type SortOrder = "asc" | "desc"
+
+interface DisplayListing {
+  id: string
+  make: string
+  model: string
+  year: number | null
+  price: number
+  mileage: number | null
+  fairPrice: number | null
+  listedDate: string
+  condition: string
+  transmission: string
+  fuelType: string
+  bodyType: string
+  dealRating: string | null
+  url?: string
+}
 
 function getDealBadgeClasses(rating: string) {
   switch (rating) {
@@ -40,19 +58,67 @@ function getDealBadgeClasses(rating: string) {
   }
 }
 
-export function ListingsTable() {
+function mapApiListing(l: ApiListing): DisplayListing {
+  return {
+    id: l.id,
+    make: l.make,
+    model: l.model,
+    year: l.year,
+    price: l.price,
+    mileage: l.mileage,
+    fairPrice: null,
+    listedDate: l.first_seen ?? l.created_at ?? new Date().toISOString(),
+    condition: l.condition,
+    transmission: l.transmission,
+    fuelType: l.fuel_type,
+    bodyType: "",
+    dealRating: null,
+    url: l.url,
+  }
+}
+
+function mapMockListings(): DisplayListing[] {
+  return carListings.map((c) => ({
+    id: c.id,
+    make: c.make,
+    model: c.model,
+    year: c.year,
+    price: c.price,
+    mileage: c.mileage,
+    fairPrice: c.fairPrice,
+    listedDate: c.listedDate,
+    condition: c.condition,
+    transmission: c.transmission,
+    fuelType: c.fuelType,
+    bodyType: c.bodyType,
+    dealRating: c.dealRating,
+  }))
+}
+
+interface ListingsTableProps {
+  initialListings?: ApiListing[]
+}
+
+export function ListingsTable({ initialListings }: ListingsTableProps) {
   const [search, setSearch] = useState("")
   const [makeFilter, setMakeFilter] = useState("all")
   const [sortField, setSortField] = useState<SortField>("listedDate")
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc")
 
+  const allListings = useMemo<DisplayListing[]>(() => {
+    if (initialListings && initialListings.length > 0) {
+      return initialListings.map(mapApiListing)
+    }
+    return mapMockListings()
+  }, [initialListings])
+
   const makes = useMemo(
-    () => Array.from(new Set(carListings.map((c) => c.make))).sort(),
-    []
+    () => Array.from(new Set(allListings.map((c) => c.make).filter(Boolean))).sort(),
+    [allListings]
   )
 
   const filtered = useMemo(() => {
-    let items = [...carListings]
+    let items = [...allListings]
 
     if (search) {
       const q = search.toLowerCase()
@@ -60,7 +126,7 @@ export function ListingsTable() {
         (c) =>
           c.make.toLowerCase().includes(q) ||
           c.model.toLowerCase().includes(q) ||
-          c.year.toString().includes(q)
+          (c.year?.toString() ?? "").includes(q)
       )
     }
 
@@ -75,20 +141,21 @@ export function ListingsTable() {
           comparison = a.price - b.price
           break
         case "year":
-          comparison = a.year - b.year
+          comparison = (a.year ?? 0) - (b.year ?? 0)
           break
         case "mileage":
-          comparison = a.mileage - b.mileage
+          comparison = (a.mileage ?? 0) - (b.mileage ?? 0)
           break
         case "listedDate":
-          comparison = new Date(a.listedDate).getTime() - new Date(b.listedDate).getTime()
+          comparison =
+            new Date(a.listedDate).getTime() - new Date(b.listedDate).getTime()
           break
       }
       return sortOrder === "asc" ? comparison : -comparison
     })
 
     return items
-  }, [search, makeFilter, sortField, sortOrder])
+  }, [allListings, search, makeFilter, sortField, sortOrder])
 
   function toggleSort(field: SortField) {
     if (sortField === field) {
@@ -183,53 +250,83 @@ export function ListingsTable() {
           </TableHeader>
           <TableBody>
             {filtered.map((car) => {
-              const priceDiff = car.price - car.fairPrice
-              const priceDiffPct = ((priceDiff / car.fairPrice) * 100).toFixed(1)
+              const priceDiff = car.fairPrice !== null ? car.price - car.fairPrice : null
+              const priceDiffPct =
+                priceDiff !== null && car.fairPrice
+                  ? ((priceDiff / car.fairPrice) * 100).toFixed(1)
+                  : null
+              const subtitle = [car.bodyType, car.transmission, car.fuelType]
+                .filter(Boolean)
+                .join(" · ")
               return (
                 <TableRow key={car.id} className="border-border/50">
                   <TableCell className="pl-6">
-                    <div className="flex flex-col">
-                      <span className="font-medium text-foreground">
-                        {car.make} {car.model}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {car.bodyType} &middot; {car.transmission} &middot; {car.fuelType}
-                      </span>
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium text-foreground">
+                          {car.make} {car.model}
+                        </span>
+                        {car.url && (
+                          <a
+                            href={car.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-muted-foreground hover:text-primary"
+                          >
+                            <ExternalLink className="size-3" />
+                          </a>
+                        )}
+                      </div>
+                      {subtitle && (
+                        <span className="text-xs text-muted-foreground">{subtitle}</span>
+                      )}
                     </div>
                   </TableCell>
-                  <TableCell className="font-mono text-foreground">{car.year}</TableCell>
+                  <TableCell className="font-mono text-foreground">
+                    {car.year ?? "—"}
+                  </TableCell>
                   <TableCell className="font-mono font-semibold text-foreground">
                     ${car.price.toLocaleString()}
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-mono text-muted-foreground">
-                        ${car.fairPrice.toLocaleString()}
-                      </span>
-                      <span
-                        className={`text-xs font-mono ${
-                          priceDiff > 0
-                            ? "text-destructive"
-                            : "text-success"
-                        }`}
-                      >
-                        {priceDiff > 0 ? "+" : ""}
-                        {priceDiffPct}%
-                      </span>
-                    </div>
+                    {priceDiff !== null && priceDiffPct !== null ? (
+                      <div className="flex flex-col">
+                        <span className="font-mono text-muted-foreground">
+                          ${car.fairPrice!.toLocaleString()}
+                        </span>
+                        <span
+                          className={`text-xs font-mono ${
+                            priceDiff > 0 ? "text-destructive" : "text-success"
+                          }`}
+                        >
+                          {priceDiff > 0 ? "+" : ""}
+                          {priceDiffPct}%
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="font-mono text-muted-foreground">
-                    {car.mileage.toLocaleString()} mi
+                    {car.mileage != null ? `${car.mileage.toLocaleString()} mi` : "—"}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="text-xs text-foreground border-border/50">
-                      {car.condition}
-                    </Badge>
+                    {car.condition ? (
+                      <Badge variant="outline" className="text-xs text-foreground border-border/50">
+                        {car.condition}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
-                    <Badge className={getDealBadgeClasses(car.dealRating)}>
-                      {car.dealRating}
-                    </Badge>
+                    {car.dealRating ? (
+                      <Badge className={getDealBadgeClasses(car.dealRating)}>
+                        {car.dealRating}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="pr-6 text-muted-foreground text-xs font-mono">
                     {new Date(car.listedDate).toLocaleDateString("en-US", {
@@ -246,3 +343,4 @@ export function ListingsTable() {
     </Card>
   )
 }
+
