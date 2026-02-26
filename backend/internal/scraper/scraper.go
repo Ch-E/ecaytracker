@@ -92,6 +92,10 @@ func Scrape() ([]models.Listing, error) {
 				log.Printf("[card %d] skipped -- empty title+price (url=%s)", i, c.URL)
 				return
 			}
+			if listing.Year == nil {
+				log.Printf("[card %d] skipped — no year (likely a part/accessory): %s", i, listing.Title)
+				return
+			}
 			listings = append(listings, listing)
 		}()
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ecaytracker/backend/config"
@@ -23,6 +24,10 @@ func InitDB(cfg *config.Config) (*pgxpool.Pool, error) {
 
 	poolCfg.MaxConns = 10
 	poolCfg.MinConns = 2
+
+	// Supabase uses PgBouncer in transaction mode which does not support
+	// pgx's prepared statement caching. Switch to simple query protocol.
+	poolCfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
