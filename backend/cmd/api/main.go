@@ -4,8 +4,8 @@ import (
 	"log"
 
 	"ecaytracker/backend/config"
-	appdb "ecaytracker/backend/internal/db"
 	"ecaytracker/backend/internal/api"
+	appdb "ecaytracker/backend/internal/db"
 )
 
 func main() {

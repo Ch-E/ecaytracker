@@ -22,8 +22,19 @@ var (
 	// Matches "On Island" / "Off Island" / "Grand Cayman" etc.
 	locationRe = regexp.MustCompile(`(?i)(on island|off island|grand cayman|cayman brac|little cayman|george town|bodden town|west bay|north side|east end)`)
 
-	// Matches mileage description
+	// mileageRe matches a bare mileage figure inside a card snippet.
 	mileageRe = regexp.MustCompile(`(?i)(over\s+[\d,]+|under\s+[\d,]+|[\d,]+\s*(?:km|miles|mi))`)
+
+	// mileageDetailRe is used on full listing-detail pages.
+	// Priority 1 – explicit label:  "Mileage: 45,000" / "Odometer: 45000 km"
+	// Priority 2 – value + unit:    "45,000 km" / "100000 miles"
+	// Priority 3 – approximate:     "Over 100,000" / "Under 50,000"
+	mileageLabelRe  = regexp.MustCompile(`(?i)(?:mileage|odometer|miles|km|kilometers)\s*[:\-–]?\s*([\d,]+)\s*(?:km|miles|mi)?`)
+	mileageValueRe  = regexp.MustCompile(`(?i)([\d,]+)\s*(?:km|kilometers|miles|mi)\b`)
+	mileageApproxRe = regexp.MustCompile(`(?i)(?:over|under|approx\.?)\s+([\d,]+)`)
+
+	// digitsRe extracts the first run of digits (and commas) from a string.
+	digitsRe = regexp.MustCompile(`[\d,]+`)
 )
 
 // knownMakes is a rough list of common makes to help split make vs model.
@@ -77,15 +88,8 @@ func ParseCard(cardText, rawURL, imgURL string) models.Listing {
 		l.Location = normaliseTitle(m)
 	}
 
-	// Extract mileage if present in card text (strip non-numeric prefix like "over"/"under").
-	if m := mileageRe.FindString(cardText); m != "" {
-		// Extract only the first digit sequence from matches like "Over 100,000"
-		digits := regexp.MustCompile(`[\d,]+`).FindString(m)
-		digits = strings.ReplaceAll(digits, ",", "")
-		if v, err := strconv.Atoi(digits); err == nil {
-			l.Mileage = &v
-		}
-	}
+	// Extract mileage from card text (also caught by ParseMileage on detail page).
+	l.Mileage = ParseMileage(cardText)
 
 	// Build title: take the first non-empty line that isn't just a price
 	l.Title = extractTitle(cardText)
@@ -167,4 +171,33 @@ func normaliseCurrency(s string) string {
 
 func normaliseTitle(s string) string {
 	return strings.Title(strings.ToLower(s)) //nolint:staticcheck
+}
+
+// ParseMileage extracts a mileage integer from arbitrary text (card snippet or
+// full detail-page body). Returns nil when no mileage can be determined.
+// Three patterns are tried in priority order:
+//  1. Labeled field  – "Mileage: 45,000" / "Odometer: 100,000 km"
+//  2. Value + unit   – "45,000 km" / "100,000 miles"
+//  3. Approximate    – "Over 100,000" / "Under 50,000"
+func ParseMileage(text string) *int {
+	try := func(re *regexp.Regexp) *int {
+		m := re.FindStringSubmatch(text)
+		if len(m) < 2 {
+			return nil
+		}
+		digits := strings.ReplaceAll(digitsRe.FindString(m[1]), ",", "")
+		v, err := strconv.Atoi(digits)
+		if err != nil || v < 100 || v > 2_000_000 {
+			return nil
+		}
+		return &v
+	}
+
+	if v := try(mileageLabelRe); v != nil {
+		return v
+	}
+	if v := try(mileageValueRe); v != nil {
+		return v
+	}
+	return try(mileageApproxRe)
 }

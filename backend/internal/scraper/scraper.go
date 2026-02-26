@@ -162,11 +162,53 @@ func scrapePage(browser *rod.Browser, url string, pageNum int) (listings []model
 				log.Printf("[page %d / card %d] skip — price upon request", pageNum, i)
 				return
 			}
+			// Fetch mileage from the detail page when it wasn't in the card text.
+			if l.Mileage == nil {
+				l.Mileage = fetchMileageFromDetail(browser, l.URL, pageNum, i)
+			}
 			listings = append(listings, l)
 		}()
 	}
 
 	return listings, hasNext, rawCount, nil
+}
+
+// fetchMileageFromDetail opens the individual listing page and extracts
+// mileage from the full page text. Returns nil on any failure.
+func fetchMileageFromDetail(browser *rod.Browser, url string, pageNum, cardIdx int) *int {
+	page, err := stealth.Page(browser)
+	if err != nil {
+		log.Printf("[page %d / card %d] detail stealth.Page: %v", pageNum, cardIdx, err)
+		return nil
+	}
+	defer func() { _ = page.Close() }()
+
+	if err := page.Timeout(20 * time.Second).Navigate(url); err != nil {
+		log.Printf("[page %d / card %d] detail navigate: %v", pageNum, cardIdx, err)
+		return nil
+	}
+	// Wait for the body to settle; a timeout here is non-fatal.
+	if werr := page.Timeout(10 * time.Second).WaitLoad(); werr != nil {
+		log.Printf("[page %d / card %d] detail WaitLoad (continuing): %v", pageNum, cardIdx, werr)
+	}
+
+	res, err := page.Eval(`() => document.body.innerText`)
+	if err != nil {
+		log.Printf("[page %d / card %d] detail innerText eval: %v", pageNum, cardIdx, err)
+		return nil
+	}
+	text := res.Value.Str()
+
+	mileage := ParseMileage(text)
+	if mileage != nil {
+		log.Printf("[page %d / card %d] detail mileage: %d", pageNum, cardIdx, *mileage)
+	} else {
+		log.Printf("[page %d / card %d] detail mileage: not found", pageNum, cardIdx)
+	}
+
+	// Brief human-like pause before returning.
+	time.Sleep(time.Duration(400+rand.Intn(400)) * time.Millisecond)
+	return mileage
 }
 
 // hasNextPage checks whether a link to the next page number exists in the DOM.
