@@ -42,7 +42,10 @@ var knownMakes = []string{
 func ParseCard(cardText, rawURL, imgURL string) models.Listing {
 	l := models.Listing{
 		URL:      rawURL,
-		ImageURL: imgURL,
+		IsActive: true,
+	}
+	if imgURL != "" {
+		l.Images = []string{imgURL}
 	}
 
 	// Extract external ID from URL
@@ -65,7 +68,7 @@ func ParseCard(cardText, rawURL, imgURL string) models.Listing {
 	if len(years) > 0 {
 		// Prefer the last found year (sometimes the title starts with year)
 		if v, err := strconv.Atoi(years[len(years)-1]); err == nil {
-			l.Year = v
+			l.Year = &v
 		}
 	}
 
@@ -74,9 +77,14 @@ func ParseCard(cardText, rawURL, imgURL string) models.Listing {
 		l.Location = normaliseTitle(m)
 	}
 
-	// Extract mileage if present in text
+	// Extract mileage if present in card text (strip non-numeric prefix like "over"/"under").
 	if m := mileageRe.FindString(cardText); m != "" {
-		l.Mileage = strings.TrimSpace(m)
+		// Extract only the first digit sequence from matches like "Over 100,000"
+		digits := regexp.MustCompile(`[\d,]+`).FindString(m)
+		digits = strings.ReplaceAll(digits, ",", "")
+		if v, err := strconv.Atoi(digits); err == nil {
+			l.Mileage = &v
+		}
 	}
 
 	// Build title: take the first non-empty line that isn't just a price

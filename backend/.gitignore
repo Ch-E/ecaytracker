@@ -1,0 +1,17 @@
+# Environment
+.env
+
+# Build output
+/bin/
+*.exe
+
+# Test output
+*.out
+results.json
+
+# Go workspace
+go.work
+go.work.sum
+
+# macOS
+.DS_Store
