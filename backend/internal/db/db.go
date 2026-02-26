@@ -1,3 +1,4 @@
+// Package db provides database initialization and connection pooling.
 package db
 
 import (

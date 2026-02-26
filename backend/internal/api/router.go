@@ -1,3 +1,4 @@
+// Package api provides HTTP routing and middleware configuration for the eCayTracker API.
 package api
 
 import (
