@@ -7,7 +7,7 @@ const _inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const _jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono" })
 
 export const metadata: Metadata = {
-  title: 'EcayTrade Analytics — Car Market Insights',
+  title: 'EcayCar — Car Market Insights',
   description: 'Live statistics, price trends, and fair market value estimates for cars listed on ecaytrade.com. Make smarter car buying decisions.',
   icons: {
     icon: [

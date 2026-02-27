@@ -1,6 +1,6 @@
 "use client"
 
-import { Activity, ExternalLink } from "lucide-react"
+import { Activity } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 export function DashboardHeader() {
@@ -12,7 +12,7 @@ export function DashboardHeader() {
         </div>
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl text-balance">
-            EcayTrade Market Analytics
+            EcayCar Market Analytics
           </h1>
           <p className="text-sm text-muted-foreground">
             Live car market data and insights from ecaytrade.com
@@ -30,15 +30,7 @@ export function DashboardHeader() {
           </span>
           Live Data
         </Badge>
-        <a
-          href="https://ecaytrade.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 rounded-md border border-border/50 bg-secondary px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-secondary/80"
-        >
-          ecaytrade.com
-          <ExternalLink className="size-3" />
-        </a>
+
       </div>
     </header>
   )

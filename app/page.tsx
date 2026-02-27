@@ -34,7 +34,7 @@ export default async function DashboardPage() {
 
           {/* Charts Row 2: Mileage vs Price + Listing Volume */}
           <div className="grid gap-6 lg:grid-cols-2">
-            <MileagePriceChart />
+            <MileagePriceChart listings={listings} />
             <ListingVolumeChart />
           </div>
 
