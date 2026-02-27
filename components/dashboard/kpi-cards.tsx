@@ -87,8 +87,10 @@ export function KpiCards({ stats }: KpiCardsProps) {
     },
     {
       title: "Avg Mileage",
-      value: `${kpiStats.avgMileage.toLocaleString()} mi`,
-      change: kpiStats.avgMileageChange,
+      value: stats?.avg_mileage
+        ? `${Math.round(stats.avg_mileage).toLocaleString()} km`
+        : `${kpiStats.avgMileage.toLocaleString()} mi`,
+      change: stats ? undefined : kpiStats.avgMileageChange,
       icon: <Gauge className="size-5 text-primary" />,
     },
     {

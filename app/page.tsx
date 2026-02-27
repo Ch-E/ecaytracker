@@ -40,8 +40,8 @@ export default async function DashboardPage() {
 
           {/* Charts Row 3: Body Types + Year Distribution */}
           <div className="grid gap-6 lg:grid-cols-2">
-            <BodyTypeChart />
-            <YearDistributionChart />
+            <BodyTypeChart bodyTypes={stats?.body_types} />
+            <YearDistributionChart yearDist={stats?.year_distribution} />
           </div>
 
           {/* Listings Table */}

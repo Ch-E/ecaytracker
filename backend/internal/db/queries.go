@@ -176,7 +176,8 @@ func GetListings(ctx context.Context, pool *pgxpool.Pool) ([]models.Listing, err
 }
 
 // GetStats returns pre-computed dashboard statistics: total listing count, average
-// price, median price, new-this-week count, and the top 8 makes by listing volume.
+// price, median price, new-this-week count, average mileage, top 8 makes, body
+// type distribution, and year distribution.
 func GetStats(ctx context.Context, pool *pgxpool.Pool) (models.Stats, error) {
 	var stats models.Stats
 
@@ -186,16 +187,17 @@ func GetStats(ctx context.Context, pool *pgxpool.Pool) (models.Stats, error) {
 			COUNT(*)::int,
 			COALESCE(AVG(price), 0),
 			COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price), 0),
-			COUNT(*) FILTER (WHERE first_seen >= NOW() - INTERVAL '7 days')::int
+			COUNT(*) FILTER (WHERE first_seen >= NOW() - INTERVAL '7 days')::int,
+			COALESCE(AVG(mileage) FILTER (WHERE mileage IS NOT NULL), 0)
 		FROM listings
 		WHERE is_active = TRUE
-	`).Scan(&stats.TotalListings, &stats.AvgPrice, &stats.MedianPrice, &stats.NewThisWeek)
+	`).Scan(&stats.TotalListings, &stats.AvgPrice, &stats.MedianPrice, &stats.NewThisWeek, &stats.AvgMileage)
 	if err != nil {
 		return stats, fmt.Errorf("get stats aggregate: %w", err)
 	}
 
 	// Top 8 makes by listing count.
-	rows, err := pool.Query(ctx, `
+	brandRows, err := pool.Query(ctx, `
 		SELECT make, COUNT(*)::int, COALESCE(AVG(price), 0)
 		FROM listings
 		WHERE is_active = TRUE AND make IS NOT NULL AND make != ''
@@ -206,20 +208,77 @@ func GetStats(ctx context.Context, pool *pgxpool.Pool) (models.Stats, error) {
 	if err != nil {
 		return stats, fmt.Errorf("get top brands: %w", err)
 	}
-	defer rows.Close()
+	defer brandRows.Close()
 
-	for rows.Next() {
+	for brandRows.Next() {
 		var b models.BrandStat
-		if err := rows.Scan(&b.Name, &b.Count, &b.AvgPrice); err != nil {
+		if err := brandRows.Scan(&b.Name, &b.Count, &b.AvgPrice); err != nil {
 			return stats, fmt.Errorf("scan brand row: %w", err)
 		}
 		stats.TopBrands = append(stats.TopBrands, b)
 	}
-	if err := rows.Err(); err != nil {
+	if err := brandRows.Err(); err != nil {
 		return stats, fmt.Errorf("brand rows error: %w", err)
 	}
 	if stats.TopBrands == nil {
 		stats.TopBrands = make([]models.BrandStat, 0)
+	}
+
+	// Body type distribution — null/empty values are grouped as "Other".
+	btRows, err := pool.Query(ctx, `
+		SELECT
+			COALESCE(NULLIF(TRIM(body_type), ''), 'Other') AS bt,
+			COUNT(*)::int,
+			COALESCE(AVG(price), 0)
+		FROM listings
+		WHERE is_active = TRUE
+		GROUP BY bt
+		ORDER BY COUNT(*) DESC
+	`)
+	if err != nil {
+		return stats, fmt.Errorf("get body types: %w", err)
+	}
+	defer btRows.Close()
+
+	for btRows.Next() {
+		var s models.BodyTypeStat
+		if err := btRows.Scan(&s.Type, &s.Count, &s.AvgPrice); err != nil {
+			return stats, fmt.Errorf("scan body type row: %w", err)
+		}
+		stats.BodyTypes = append(stats.BodyTypes, s)
+	}
+	if err := btRows.Err(); err != nil {
+		return stats, fmt.Errorf("body type rows error: %w", err)
+	}
+	if stats.BodyTypes == nil {
+		stats.BodyTypes = make([]models.BodyTypeStat, 0)
+	}
+
+	// Year distribution — only rows where year is known.
+	yrRows, err := pool.Query(ctx, `
+		SELECT year::int, COUNT(*)::int
+		FROM listings
+		WHERE is_active = TRUE AND year IS NOT NULL
+		GROUP BY year
+		ORDER BY year ASC
+	`)
+	if err != nil {
+		return stats, fmt.Errorf("get year distribution: %w", err)
+	}
+	defer yrRows.Close()
+
+	for yrRows.Next() {
+		var y models.YearStat
+		if err := yrRows.Scan(&y.Year, &y.Count); err != nil {
+			return stats, fmt.Errorf("scan year row: %w", err)
+		}
+		stats.YearDistribution = append(stats.YearDistribution, y)
+	}
+	if err := yrRows.Err(); err != nil {
+		return stats, fmt.Errorf("year rows error: %w", err)
+	}
+	if stats.YearDistribution == nil {
+		stats.YearDistribution = make([]models.YearStat, 0)
 	}
 
 	return stats, nil

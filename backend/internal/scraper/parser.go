@@ -25,6 +25,10 @@ var (
 	// mileageRe matches a bare mileage figure inside a card snippet.
 	mileageRe = regexp.MustCompile(`(?i)(over\s+[\d,]+|under\s+[\d,]+|[\d,]+\s*(?:km|miles|mi))`)
 
+	// contaminatedRe detects a field value that contains another label's data,
+	// e.g. "Mileage: 85600 km" appearing as the value for the "Drive" field.
+	contaminatedRe = regexp.MustCompile(`(?i)^(?:mileage|odometer|body\s+type|drive|cylinders|fuel\s+type|transmission|steering|exterior\s+color|interior\s+color|doors|on\s+island|condition|year)\s*:`)
+
 	// mileageDetailRe is used on full listing-detail pages.
 	// Priority 1 – explicit label:  "Mileage: 45,000" / "Odometer: 45000 km"
 	// Priority 2 – value + unit:    "45,000 km" / "100000 miles"
@@ -209,7 +213,13 @@ func ApplyDetailFields(fields map[string]string, fullText string, l *models.List
 	get := func(keys ...string) string {
 		for _, k := range keys {
 			if v, ok := fields[k]; ok && v != "" {
-				return strings.TrimSpace(v)
+				v = strings.TrimSpace(v)
+				// Reject values that look like another field's label+colon pair,
+				// indicating the DOM walker grabbed the wrong neighbouring element.
+				if contaminatedRe.MatchString(v) {
+					continue
+				}
+				return v
 			}
 		}
 		return ""

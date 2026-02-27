@@ -4,7 +4,7 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Cell }
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { bodyTypeData } from "@/lib/mock-data"
-import { TrendingUp, TrendingDown } from "lucide-react"
+import type { BodyTypeStat } from "@/lib/api"
 
 const COLORS = [
   "oklch(0.65 0.2 160)",
@@ -12,14 +12,24 @@ const COLORS = [
   "oklch(0.7 0.18 80)",
   "oklch(0.6 0.2 25)",
   "oklch(0.55 0.15 300)",
+  "oklch(0.65 0.18 130)",
+  "oklch(0.58 0.15 200)",
 ]
 
-export function BodyTypeChart() {
+interface BodyTypeChartProps {
+  bodyTypes?: BodyTypeStat[]
+}
+
+export function BodyTypeChart({ bodyTypes }: BodyTypeChartProps) {
+  const chartData = bodyTypes && bodyTypes.length > 0
+    ? bodyTypes.map((b) => ({ type: b.type, count: b.count, avgPrice: Math.round(b.avg_price) }))
+    : bodyTypeData.map((b) => ({ type: b.type, count: b.count, avgPrice: b.avgPrice }))
+
   return (
     <Card className="border-border/50">
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold">Body Types</CardTitle>
-        <CardDescription>Distribution and price trends by body type</CardDescription>
+        <CardDescription>Distribution and average price by body type</CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer
@@ -32,7 +42,7 @@ export function BodyTypeChart() {
           className="h-[200px] w-full"
         >
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={bodyTypeData} margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+            <BarChart data={chartData} margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.26 0.005 260)" />
               <XAxis
                 dataKey="type"
@@ -53,35 +63,20 @@ export function BodyTypeChart() {
                 }
               />
               <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={36}>
-                {bodyTypeData.map((_, index) => (
+                {chartData.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </ChartContainer>
-        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
-          {bodyTypeData.map((item) => (
+        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
+          {chartData.map((item) => (
             <div key={item.type} className="flex flex-col gap-0.5">
               <span className="text-xs text-muted-foreground">{item.type} Avg</span>
               <span className="text-sm font-semibold text-foreground">
                 ${item.avgPrice.toLocaleString()}
               </span>
-              <div className="flex items-center gap-1">
-                {item.pctChange >= 0 ? (
-                  <TrendingUp className="size-3 text-success" />
-                ) : (
-                  <TrendingDown className="size-3 text-destructive" />
-                )}
-                <span
-                  className={`text-xs font-medium ${
-                    item.pctChange >= 0 ? "text-success" : "text-destructive"
-                  }`}
-                >
-                  {item.pctChange >= 0 ? "+" : ""}
-                  {item.pctChange}%
-                </span>
-              </div>
             </div>
           ))}
         </div>

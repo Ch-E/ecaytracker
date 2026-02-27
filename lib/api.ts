@@ -32,12 +32,26 @@ export interface BrandStat {
   avg_price: number
 }
 
+export interface BodyTypeStat {
+  type: string
+  count: number
+  avg_price: number
+}
+
+export interface YearStat {
+  year: number
+  count: number
+}
+
 export interface DashboardStats {
   total_listings: number
   avg_price: number
   median_price: number
   new_this_week: number
+  avg_mileage: number
   top_brands: BrandStat[]
+  body_types: BodyTypeStat[]
+  year_distribution: YearStat[]
 }
 
 export async function fetchStats(): Promise<DashboardStats | null> {
